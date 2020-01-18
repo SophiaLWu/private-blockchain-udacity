@@ -121,7 +121,7 @@ class Blockchain {
             let submittedTime = parseInt(message.split(':')[1]);
             let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
 
-            if (scurrentTime - submittedTime < 300) {
+            if (currentTime - submittedTime < 300) {
                 bitcoinMessage.verify(message, address, signature);
                 resolve(await self.addBlock(new BlockClass.Block({ address: address, star: star })));
             } else {
