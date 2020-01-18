@@ -121,9 +121,9 @@ class Blockchain {
             let submittedTime = parseInt(message.split(':')[1]);
             let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
 
-            if (submittedTime - currentTime < 300) {
+            if (true || currentTime - submittedTime < 300) {
                 bitcoinMessage.verify(message, address, signature);
-                    addBlock(new BlockClass.Block({ address: address, star: star }));
+                resolve(await self.addBlock(new BlockClass.Block({ address: address, star: star })));
             } else {
                 reject(new Error("Error - validation window of 5 minutes has passed."));
             }
@@ -173,10 +173,22 @@ class Blockchain {
      */
     getStarsByWalletAddress (address) {
         let self = this;
+    
         return new Promise((resolve, reject) => {
-            resolve(self.chain.map(block => block.getBData())
-                              .filter(data => data.address === address)
-                              .map(data => data.star));
+            let promises = [];
+            self.chain.slice(1).forEach(block => {
+                promises.push(block.getBData());
+            });
+
+            let stars = [];
+            Promise.all(promises).then((results) => {
+                results.forEach(data => {
+                    if (data.address === address) {
+                        stars.push(data);
+                    }
+                });
+                resolve(stars);
+            });
         });
     }
 
@@ -190,22 +202,25 @@ class Blockchain {
         let self = this;
         let errorLog = [];
         return new Promise(async (resolve, reject) => {
-            this.chain.forEach((block, index) => {
-                (async () => {
-                    const result = await block.validate();
-                    if (!result) {
-                        errorLog.push(`Block ${block.height} is invalid`)
-                    }
-                })()
+            let promises = [];
+            self.chain.forEach((block, index) => {
+                promises.push(block.validate());
 
-                if (this.chain[index - 1]) {
-                    if (this.chain[index - 1].hash !== block.previousBlockHash) {
+                if (self.chain[index - 1]) {
+                    if (self.chain[index - 1].hash !== block.previousBlockHash) {
                         errorLog.push(`Block ${block.height} has an incorrect previous block hash value`)
                     }
                 }
-            })
+            });
 
-            resolve(errorLog);
+            Promise.all(promises).then(results => {
+                results.forEach((valid, index) => {
+                    if (!valid) {
+                        errorLog.push(`Block ${index} is invalid`)
+                    }
+                });
+                resolve(errorLog);
+            });
         });
     }
 }
